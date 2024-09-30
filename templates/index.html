@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Productivity and Focus Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4; /* Light gray background */
+            color: #333; /* Dark text */
+        }
+
+        h1 {
+            color: #4CAF50; /* Green header */
+            text-align: center;
+        }
+
+        h3 {
+            color: #555; /* Darker gray for subheadings */
+        }
+
+        input[type="text"],
+        input[type="number"],
+        button {
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: calc(100% - 22px); /* Full width minus padding */
+            font-size: 16px;
+        }
+
+        button {
+            background-color: #4CAF50; /* Green button */
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049; /* Darker green on hover */
+        }
+
+        .task-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+
+        .task-item {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fff; /* White background for tasks */
+            transition: background-color 0.3s;
+        }
+
+        .task-item.completed {
+            text-decoration: line-through;
+            background-color: #e0e0e0; /* Gray background for completed tasks */
+        }
+
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff; /* White background for summary */
+        }
+
+        .summary p {
+            margin: 5px 0; /* Spacing between summary paragraphs */
+        }
+    </style>
+</head>
+<body>
+
+<h1>Daily Productivity and Focus Assistant</h1>
+
+<h3>Add a new task:</h3>
+<input type="text" id="taskInput" placeholder="Enter a task..." />
+<label for="pomodoro">Pomodoro cycles (optional):</label>
+<input type="number" id="pomodoro" min="0" value="0" />
+<button onclick="addTask()">Add Task</button>
+
+<h3>Your tasks:</h3>
+<ul id="taskList" class="task-list"></ul>
+
+<h3>Daily Summary:</h3>
+<div id="summary" class="summary">Loading summary...</div>
+
+<script>
+    const apiUrl = '/tasks';
+    const summaryUrl = '/summary';
+
+    async function fetchTasks() {
+        const response = await fetch(apiUrl);
+        const tasks = await response.json();
+        const taskList = document.getElementById('taskList');
+        taskList.innerHTML = '';  // Clear the list
+
+        tasks.forEach((task, index) => {
+            const taskItem = document.createElement('li');
+            taskItem.className = 'task-item' + (task.completed ? ' completed' : '');
+            taskItem.innerHTML = `
+                <span>${task.name} (Pomodoro cycles: ${task.pomodoro_cycles})</span>
+                <div>
+                    <button onclick="toggleComplete(${index}, ${task.completed})">${task.completed ? 'Undo' : 'Complete'}</button>
+                    <button onclick="deleteTask(${index})">Delete</button>
+                </div>
+            `;
+            taskList.appendChild(taskItem);
+        });
+    }
+
+    async function addTask() {
+        const taskInput = document.getElementById('taskInput');
+        const pomodoroInput = document.getElementById('pomodoro');
+        const taskName = taskInput.value.trim();
+        const pomodoroCycles = parseInt(pomodoroInput.value, 10);
+
+        if (!taskName) return;
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: taskName, pomodoro_cycles: pomodoroCycles })
+        });
+
+        if (response.ok) {
+            taskInput.value = '';
+            pomodoroInput.value = '0';
+            fetchTasks();  // Refresh the list
+            fetchSummary();  // Update summary
+        }
+    }
+
+    async function toggleComplete(taskId, completed) {
+        const response = await fetch(`${apiUrl}/${taskId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ completed: !completed })
+        });
+
+        if (response.ok) {
+            fetchTasks();  // Refresh the list
+            fetchSummary();  // Update summary
+        }
+    }
+
+    async function deleteTask(taskId) {
+        const response = await fetch(`${apiUrl}/${taskId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            fetchTasks();  // Refresh the list
+            fetchSummary();  // Update summary
+        }
+    }
+
+    async function fetchSummary() {
+        const response = await fetch(summaryUrl);
+        const summary = await response.json();
+        const summaryDiv = document.getElementById('summary');
+        summaryDiv.innerHTML = `
+            <p>Tasks Completed: ${summary.tasks_completed}</p>
+            <p>Pomodoro Cycles: ${summary.pomodoro_cycles}</p>
+            <p>Tip: ${summary.tip}</p>
+        `;
+    }
+
+    // Load tasks and summary on page load
+    fetchTasks();
+    fetchSummary();
+</script>
+
+</body>
+</html>
